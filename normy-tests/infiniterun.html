@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Infinite Run</title>
+        <script src="http://code.createjs.com/createjs-2013.05.14.min.js"></script>
+        <script src="scripts/jquery-2.0.2.min.js"></script>
+        
+        <script>
+          var stage, playerCircle;
+          var enemyCircles = new Array();
+          var keymaps = new Array();
+          var dx = 0, dy = 0;
+          var pressed = {};
+          var numEnemies = 0, maxEnemies = 100;
+          var personRadius = 24;
+          
+          function init() {
+            stage = new createjs.Stage("demoCanvas");
+            keymaps[87] = keymaps[38] = "up";
+            keymaps[65] = keymaps[37] = "left";
+            keymaps[83] = keymaps[40] = "down";
+            keymaps[68] = keymaps[39] = "right";
+            
+            $(document).on('keydown',function(e) {
+              if (keymaps[e.which]) {
+                var cmp = keymaps[e.which];
+                pressed[cmp] = true;
+                
+                if (cmp === "up") {
+                  dy = -1; // Note these are switched for now
+                } else if (cmp === "down") {
+                  dy = 1;
+                } else if (cmp === "left") {
+                  dx = -1;
+                } else if (cmp === "right") {
+                  dx = 1;
+                }
+              }
+            });
+            $(document).on('keyup',function(e) {
+              if (keymaps[e.which]) {
+                var cmp = keymaps[e.which];
+                pressed[cmp] = false;
+                
+                if (cmp === "up") {
+                  dy = pressed["down"] ? 1 : 0; // Note these are switched for now
+                } else if (cmp === "down") {
+                  dy = pressed["up"] ? -1 : 0;
+                } else if (cmp === "left") {
+                  dx = pressed["right"] ? 1 : 0;
+                } else if (cmp === "right") {
+                  dx = pressed["left"] ? -1 : 0;
+                }
+              }
+            });
+
+            playerCircle = new createjs.Shape();
+            playerCircle.graphics.beginFill("red").drawCircle(0, 200, personRadius);
+            playerCircle.x = 900; playerCircle.y = 0;
+            stage.addChild(playerCircle);
+            
+            for (var i = 0; i < maxEnemies; ++i) {
+              enemyCircles[i] = new createjs.Shape();
+              enemyCircles[i].graphics.beginFill("black").drawCircle(0, 200, personRadius);
+              enemyCircles[i].x = 1000; enemyCircles[i].y = 0;
+              stage.addChild(enemyCircles[i]);
+            }
+
+            createjs.Ticker.addEventListener("tick", tick);
+            createjs.Ticker.setFPS(60);
+          }
+
+          function tick(event) {
+            var dt = (event.delta)/1000;
+            var v = 400;
+            var diagFactor = (dx*dx+dy*dy > 1) ? Math.sqrt(2) : 1;
+            var xPush = (Math.atan((500-playerCircle.x) / 80) / Math.PI + 0.5) * v;
+            
+            playerCircle.x = playerCircle.x + (v * dx / diagFactor + xPush) * dt;
+            playerCircle.y = playerCircle.y + (v * dy / diagFactor) * dt;
+            
+            if (playerCircle.y > 200-personRadius) {
+              playerCircle.y = 200-personRadius;
+            } else if (playerCircle.y < personRadius-200) {
+              playerCircle.y = personRadius-200;
+            }
+            
+            for (var i = 0; i < numEnemies; ++i) {
+              if (enemyCircles[i].x > 1000) {
+                var swap = enemyCircles[i];
+                enemyCircles[i] = enemyCircles[--numEnemies];
+                enemyCircles[numEnemies] = swap;
+                --i;
+              } else {
+                enemyCircles[i].x += (v/2 + xPush) * dt;
+              }
+            }
+            
+            if (numEnemies < maxEnemies && Math.random() < Math.pow(0.06, 15/event.delta)) {
+              enemyCircles[numEnemies].x = -100;
+              enemyCircles[numEnemies].y = (Math.random()-0.5) * 340;
+              numEnemies++;
+            }
+            
+            stage.update(event);
+          }
+          
+        </script>
+    </head>
+    <body onload="init();">
+      <div class="canvasHolder">
+        <canvas id="demoCanvas" width="960" height="400" style="border:2px solid;">Sadness</canvas>
+      </div>
+    </body>
+</html>
