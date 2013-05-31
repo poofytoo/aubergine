@@ -11,8 +11,9 @@
           var keymaps = new Array();
           var dx = 0, dy = 0;
           var pressed = {};
-          var numEnemies = 0, maxEnemies = 100;
-          var personRadius = 24;
+          var numEnemies = 0, maxEnemies = 80;
+          var personRadius = 72;
+          var pr2 = personRadius*personRadius;
           
           function init() {
             stage = new createjs.Stage("demoCanvas");
@@ -55,13 +56,13 @@
             });
 
             playerCircle = new createjs.Shape();
-            playerCircle.graphics.beginFill("red").drawCircle(0, 200, personRadius);
+            playerCircle.graphics.beginFill("red").drawCircle(0, 200, personRadius/2);
             playerCircle.x = 900; playerCircle.y = 0;
             stage.addChild(playerCircle);
             
             for (var i = 0; i < maxEnemies; ++i) {
               enemyCircles[i] = new createjs.Shape();
-              enemyCircles[i].graphics.beginFill("black").drawCircle(0, 200, personRadius);
+              enemyCircles[i].graphics.beginFill("black").drawCircle(0, 200, personRadius/2);
               enemyCircles[i].x = 1000; enemyCircles[i].y = 0;
               stage.addChild(enemyCircles[i]);
             }
@@ -69,37 +70,89 @@
             createjs.Ticker.addEventListener("tick", tick);
             createjs.Ticker.setFPS(60);
           }
+          
+          function repulsePerson(v, r2) {
+            if (r2 > pr2/2) {
+              return Math.sqrt(1-2*(r2-pr2/2)/pr2)*v;
+            } else {
+              return v;
+            }
+          }
 
           function tick(event) {
             var dt = (event.delta)/1000;
-            var v = 400;
+            var v = 600;
             var diagFactor = (dx*dx+dy*dy > 1) ? Math.sqrt(2) : 1;
             var xPush = (Math.atan((500-playerCircle.x) / 80) / Math.PI + 0.5) * v;
             
             playerCircle.x = playerCircle.x + (v * dx / diagFactor + xPush) * dt;
             playerCircle.y = playerCircle.y + (v * dy / diagFactor) * dt;
             
-            if (playerCircle.y > 200-personRadius) {
-              playerCircle.y = 200-personRadius;
-            } else if (playerCircle.y < personRadius-200) {
-              playerCircle.y = personRadius-200;
+            var wpp2 = (playerCircle.y-200)*(playerCircle.y-200);
+            var wpm2 = (playerCircle.y+200)*(playerCircle.y+200);
+            if (wpp2 < pr2) {
+              playerCircle.y -= repulsePerson(v, wpp2) * dt;
+            } else if (wpm2 < pr2) {
+              playerCircle.y += repulsePerson(v, wpm2) * dt;
             }
             
             for (var i = 0; i < numEnemies; ++i) {
-              if (enemyCircles[i].x > 1000) {
-                var swap = enemyCircles[i];
+              var ec = enemyCircles[i];
+              if (ec.x > 1000) {
                 enemyCircles[i] = enemyCircles[--numEnemies];
-                enemyCircles[numEnemies] = swap;
+                enemyCircles[numEnemies] = ec;
                 --i;
               } else {
-                enemyCircles[i].x += (v/2 + xPush) * dt;
+                ec.x += (v/2 + xPush) * dt;
+                
+                var wp2 = (ec.y-200)*(ec.y-200);
+                var wm2 = (ec.y+200)*(ec.y+200);
+                if (wp2 < pr2) {
+                  ec.y -= repulsePerson(v/4, wp2) * dt;
+                } else if (wm2 < pr2) {
+                  ec.y += repulsePerson(v/4, wm2) * dt;
+                }
               }
             }
             
-            if (numEnemies < maxEnemies && Math.random() < Math.pow(0.06, 15/event.delta)) {
+            if (numEnemies < maxEnemies && Math.random() < 0.18 * event.delta/15) {
               enemyCircles[numEnemies].x = -100;
               enemyCircles[numEnemies].y = (Math.random()-0.5) * 340;
               numEnemies++;
+            }
+            
+            for (var i = 0; i < numEnemies; ++i) {
+              var ec = enemyCircles[i];
+              var plx = playerCircle.x - ec.x;
+              var ply = playerCircle.y - ec.y;
+              var plr2 = plx*plx+ply*ply;
+              
+              if (plr2 < pr2) {
+                var plr = Math.sqrt(plr2);
+                var push = repulsePerson(v,plr2) / plr*dt;
+                playerCircle.x += push * plx;
+                playerCircle.y += push * ply;
+                ec.x -= push*plx*0.5;
+                ec.y -= push*ply*0.5;
+              }
+              
+              for (var j = i+1; j < numEnemies; ++j) {
+                if (i == j) continue;
+                
+                var ec2 = enemyCircles[j];
+                var cx = ec.x-ec2.x;
+                var cy = ec.y-ec2.y;
+                var cr2 = cx*cx+cy*cy;
+                
+                if (cr2<pr2) {
+                  var cr = Math.sqrt(cr2);
+                  var push = repulsePerson(v/4,cr2)/cr*dt;
+                  ec.x += push*cx;
+                  ec.y += push*cy;
+                  ec2.x -= push*cx;
+                  ec2.y -= push*cx;
+                }
+              }
             }
             
             stage.update(event);
