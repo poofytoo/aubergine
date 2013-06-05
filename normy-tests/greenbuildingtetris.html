@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Green Building Tetris</title>
+        <script src="http://code.createjs.com/createjs-2013.05.14.min.js"></script>
+        <script src="scripts/jquery-2.0.2.min.js"></script>
+        
+        <script>
+          var stage;
+          var enemyCircles = new Array();
+          var keymaps = new Array();
+          var pressed = {};
+          var pixels = new Array(19);
+          var accumulator = 0;
+          // null, I, J, L, O, S, T, Z
+          var colorArray = [ "black", "cyan", "blue", "orange", "yellow", "green", "purple", "red" ];
+          // These coordinates are wrt the upper-left of a 3x3 or 4x4 box which bounds the piece, "flat-down" orientation at index 0 going clockwise
+          // Note consistent usage of 1-based indexing and row-column order
+          var pieces = [[ [],
+              [1, 0, 1, 1, 1, 2, 1, 3],
+              [0, 0, 1, 0, 1, 1, 1, 2],
+              [0, 2, 1, 0, 1, 1, 1, 2],
+              [1, 1, 1, 2, 2, 1, 2, 2],
+              [0, 1, 0, 2, 1, 0, 1, 1],
+              [0, 1, 1, 0, 1, 1, 1, 2],
+              [0, 0, 0, 1, 1, 1, 1, 2]]];
+          // Note that the 3x3 boxes should be spawned at 0, 3 and the 4x4 boxes at -1, 2
+          var boundingBox = [ 0, 4, 3, 3, 4, 3, 3, 3 ];
+          // piece state
+          var cr, cc, cpiece = 0, corient;
+          // which pieces have been spawned
+          var haveSpawned = new Array(8);
+          // number which have been drawn already
+          var numSpawned = 0;
+          
+          // the 'official' way to generate tetris pieces
+          function drawSeven() {
+            if (numSpawned >= 7) {
+              for (var i = 0; i < 8; ++i) {
+                haveSpawned[i] = false;
+              }
+              numSpawned = 0;
+            }
+            
+            var spawn = Math.floor(Math.random()*(7-numSpawned));
+            toSpawn = new Array(7-numSpawned);
+            
+            for (var i = 1, j = 0; i < 8; ++i) {
+              if (!haveSpawned[i]) {
+                toSpawn[j++] = i;
+              }
+            }
+            
+            ++numSpawned;
+            var ts = toSpawn[spawn];
+            haveSpawned[ts] = true;
+            return ts;
+          }
+          
+          function rotateOffsetsClockwise(offsetArray, bBox) {
+            var newArray = new Array(8);
+            for (var i = 0; i < 4; ++i) {
+              newArray[i*2] = offsetArray[i*2+1];
+              newArray[i*2+1] = bBox-1-offsetArray[i*2];
+            }
+            return newArray;
+          }
+          
+          function redrawPixel(r,c, color) {
+            if (r >= 1 && r < 19 && c >= 0 && c < 9) {
+              pixels[r][c].shape.graphics.clear().beginFill(color).rect(c*23+200,r*23-40, 20, 20);
+              return true;
+            } else {
+              return false;
+            }
+          }
+          
+          // Note: Please call this before changing any of the c-prefixed values!
+          function cleanCurrentPiece() {
+            if (cpiece != 0) {
+              for (var i = 0; i < 4; ++i) {
+                redrawPixel(cr+pieces[corient][cpiece][i*2],cc+pieces[corient][cpiece][i*2+1],"black");
+              }
+            }
+          }
+          function drawCurrentPiece() {
+            if (cpiece != 0) {
+              for (var i = 0; i < 4; ++i) {
+                redrawPixel(cr+pieces[corient][cpiece][i*2],cc+pieces[corient][cpiece][i*2+1],colorArray[cpiece]);
+              }
+            }
+          }
+          
+          function init() {
+            alert('space for new piece, left/right to rotate');
+            
+            stage = new createjs.Stage("demoCanvas");
+            keymaps[87] = keymaps[38] = "up";
+            keymaps[65] = keymaps[37] = "left";
+            keymaps[83] = keymaps[40] = "down";
+            keymaps[68] = keymaps[39] = "right";
+            keymaps[32] = "space";
+            
+            // generate the rotated offsets
+            for (var rot = 1; rot < 4; ++rot) {
+              pieces[rot] = new Array(8);
+              pieces[rot][0] = [];
+              for (var i = 1; i < 8; ++i) {
+                pieces[rot][i] = rotateOffsetsClockwise(pieces[rot-1][i],boundingBox[i]);
+              }
+            }
+            
+            $(document).on('keydown',function(e) {
+              if (keymaps[e.which]) {
+                var cmp = keymaps[e.which];
+                pressed[cmp] = true;
+                
+                // http://tetris.wikia.com/wiki/Twist <-- holy shit this is more complicated than I thought it would be
+                if (cmp === "up") {
+                } else if (cmp === "down") {
+                } else if (cmp === "left") {
+                  // counterclockwise
+                  cleanCurrentPiece();
+                  corient = (corient+3)%4;
+                  drawCurrentPiece();
+                } else if (cmp === "right") {
+                  // clockwise
+                  cleanCurrentPiece();
+                  corient = (corient+1)%4;
+                  drawCurrentPiece();
+                } else if (cmp === "space") {
+                  // this should be used for swapping pieces into storage but right now it'll be used to spawn pieces
+                  
+                  cleanCurrentPiece();
+                  
+                  cr = 5, cc = 3;
+                  corient = 0; cpiece = drawSeven();
+                  
+                  drawCurrentPiece();
+                }
+              }
+            });
+            $(document).on('keyup',function(e) {
+              if (keymaps[e.which]) {
+                var cmp = keymaps[e.which];
+                pressed[cmp] = false;
+              }
+            });
+
+            for (var r = 0; r < 19; ++r) {
+              pixels[r] = new Array(9);
+              for (var c = 0; c < 9; ++c) {
+                pixels[r][c] = {
+                  occupied: 0,
+                };
+                if (r > 1) {
+                  pixels[r][c].shape = new createjs.Shape();
+                  redrawPixel(r,c,"black");
+                  stage.addChild(pixels[r][c].shape);
+                }
+              }
+            }
+            
+            for (var i = 0; i < 8; ++i) {
+              haveSpawned[i] = false;
+            }
+
+            createjs.Ticker.addEventListener("tick", tick);
+            createjs.Ticker.setFPS(60);
+          }
+
+          function tick(event) {
+            var dt = (event.delta)/1000;
+            accumulator += dt;
+            
+            stage.update(event);
+          }
+          
+        </script>
+    </head>
+    <body onload="init();">
+      <div class="canvasHolder">
+        <canvas id="demoCanvas" width="960" height="400" style="border:2px solid;">Sadness</canvas>
+      </div>
+    </body>
+</html>
