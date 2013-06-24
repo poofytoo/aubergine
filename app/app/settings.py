@@ -1,4 +1,4 @@
-# Django settings for app project.
+#Django settings for app project.
 
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
@@ -119,6 +119,7 @@ INSTALLED_APPS = (
     'django.contrib.sites',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.flatpages',
     # Uncomment the next line to enable the admin:
     # 'django.contrib.admin',
     # Uncomment the next line to enable admin documentation:
