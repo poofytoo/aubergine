@@ -1,23 +1,10 @@
 from django.conf.urls import patterns, include, url
 from django.contrib import admin
-
-# Uncomment the next two lines to enable the admin:
-from django.contrib import admin
 admin.autodiscover()
 
-urlpatterns = patterns('',
-    (r'^pages/', include('django.contrib.flatpages.urls')),
-    # Examples:
-    # url(r'^$', 'app.views.home', name='home'),
-    # url(r'^app/', include('app.foo.urls')),
-
-    # Uncomment the admin/doc line below to enable admin documentation:
-    # url(r'^admin/doc/', include('django.contrib.admindocs.urls')),
-
-    # Uncomment the next line to enable the admin:
+urlpatterns = patterns('django.contrib.flatpages.views',
     url(r'^admin/', include(admin.site.urls)),
+    url(r'^(?P<url>.*/)$', 'flatpage'),
+    url(r'^$', 'flatpage', {'url': '/index/'}, name='index'),
 )
 
-urlpatterns += patterns('django.contrib.flatpages.views',
-    (r'^(?P<url>.*/)$', 'flatpage'),
-)
