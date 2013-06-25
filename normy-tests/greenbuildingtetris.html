@@ -33,6 +33,38 @@
           // number which have been drawn already
           var numSpawned = 0;
           
+          // http://www.tetrisconcept.net/wiki/SRS
+          // Note that contrary to all other things, kicks are in x,y with x to the right and y upwards
+          var wallKicksR =
+          [
+            [ 0, 0, -1, 0, -1,+1,  0,-2, -1,-2,],
+            [ 0, 0, +1, 0, +1,-1,  0,+2, +1,+2,],
+            [ 0, 0, +1, 0, +1,+1,  0,-2, +1,-2,],
+            [ 0, 0, -1, 0, -1,-1,  0,+2, -1,+2,],
+          ];
+          var wallKicksL =
+          [
+            [ 0, 0, +1, 0, +1,+1,  0,-2, +1,-2,],
+            [ 0, 0, +1, 0, +1,-1,  0,+2, +1,+2,],
+            [ 0, 0, -1, 0, -1,+1,  0,-2, -1,-2,],
+            [ 0, 0, -1, 0, -1,-1,  0,+2, -1,+2,],
+          ];
+          var wallKicksIR = 
+          [
+            [ 0, 0, -2, 0, +1, 0, +1,+2, -2,-1,],
+            [ 0, 0, -1, 0, +2, 0, -1,+2, +2,-1,],
+            [ 0, 0, +2, 0, -1, 0, +2,+1, -1,-1,],
+            [ 0, 0, -2, 0, +1, 0, -2,+1, +1,-2,],
+          ];
+          var wallKicksIL = 
+          [
+            [ 0, 0, +2, 0, -1, 0, -1,+2, +2,-1,],
+            [ 0, 0, +2, 0, -1, 0, +2,+1, -1,-2,],
+            [ 0, 0, -2, 0, +1, 0, -2,+1, +1,-1,],
+            [ 0, 0, +1, 0, -2, 0, +1,+2, -2,-1,],
+          ]
+          var fallKick = [0,-1];
+          
           // the 'official' way to generate tetris pieces
           function drawSeven() {
             if (numSpawned >= 7) {
@@ -66,6 +98,13 @@
             return newArray;
           }
           
+          function cpr(i) {
+            return cr+pieces[corient][cpiece][i*2];
+          }
+          function cpc(i) {
+            return cc+pieces[corient][cpiece][i*2+1];
+          }
+          
           function redrawPixel(r,c, color) {
             if (r >= 1 && r < 19 && c >= 0 && c < 9) {
               pixels[r][c].shape.graphics.clear().beginFill(color).rect(c*23+200,r*23-40, 20, 20);
@@ -76,19 +115,57 @@
           }
           
           // Note: Please call this before changing any of the c-prefixed values!
+          // Also assumes the piece is in a valid position
           function cleanCurrentPiece() {
             if (cpiece != 0) {
               for (var i = 0; i < 4; ++i) {
-                redrawPixel(cr+pieces[corient][cpiece][i*2],cc+pieces[corient][cpiece][i*2+1],"black");
+                redrawPixel(cpr(i),cpc(i),"black");
+                pixels[cpr(i)][cpc(i)].filled = false;
               }
             }
           }
           function drawCurrentPiece() {
             if (cpiece != 0) {
               for (var i = 0; i < 4; ++i) {
-                redrawPixel(cr+pieces[corient][cpiece][i*2],cc+pieces[corient][cpiece][i*2+1],colorArray[cpiece]);
+                redrawPixel(cpr(i),cpc(i),colorArray[cpiece]);
+                pixels[cpr(i)][cpc(i)].filled = true;
               }
             }
+          }
+          
+          function attemptPiecePlacement(kickArray) {
+            if (cpiece != 0) {
+              var cr0 = cr;
+              var cc0 = cc;
+              console.log(kickArray);
+              
+              for (var k = 0; k < kickArray.length/2; ++k) {
+                var placed = true;
+                
+                
+                
+                // lolol note this failure
+                cr = cr0 - kickArray[k*2+1];
+                cc = cc0 + kickArray[k*2];
+                
+                for (var i = 0; i < 4; ++i) {
+                  var tr = cpr(i);
+                  var tc = cpc(i);
+                  
+                  if (tr < 0 || tr >= 19 || tc < 0 || tc >= 9 || pixels[tr][tc].filled) {
+                    placed = false;
+                    break;
+                  }
+                }
+                if (placed) {
+                  return true;
+                }
+              }
+            }
+            
+            cr = cr0;
+            cc = cc0;
+            return false;
           }
           
           function init() {
@@ -117,16 +194,30 @@
                 
                 // http://tetris.wikia.com/wiki/Twist <-- holy shit this is more complicated than I thought it would be
                 if (cmp === "up") {
+                  cleanCurrentPiece();
+                  while (attemptPiecePlacement(fallKick)) ;
+                  drawCurrentPiece();
                 } else if (cmp === "down") {
+                  cleanCurrentPiece();
+                  attemptPiecePlacement(fallKick);
+                  drawCurrentPiece();
                 } else if (cmp === "left") {
                   // counterclockwise
                   cleanCurrentPiece();
+                  arr = cpiece==1 ? wallKicksIL[corient] : wallKicksL[corient];
                   corient = (corient+3)%4;
+                  if (!attemptPiecePlacement(arr)) {
+                    corient = (corient+1)%4;
+                  }
                   drawCurrentPiece();
                 } else if (cmp === "right") {
                   // clockwise
                   cleanCurrentPiece();
+                  arr = cpiece==1 ? wallKicksIR[corient] : wallKicksR[corient];
                   corient = (corient+1)%4;
+                  if (!attemptPiecePlacement(arr)) {
+                    corient = (corient+3)%4;
+                  }
                   drawCurrentPiece();
                 } else if (cmp === "space") {
                   // this should be used for swapping pieces into storage but right now it'll be used to spawn pieces
@@ -151,7 +242,7 @@
               pixels[r] = new Array(9);
               for (var c = 0; c < 9; ++c) {
                 pixels[r][c] = {
-                  occupied: 0,
+                  filled: false,
                 };
                 if (r > 1) {
                   pixels[r][c].shape = new createjs.Shape();
