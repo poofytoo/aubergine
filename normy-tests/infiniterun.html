@@ -88,8 +88,8 @@
             playerCircle.x = playerCircle.x + (v * dx / diagFactor + xPush) * dt;
             playerCircle.y = playerCircle.y + (v * dy / diagFactor) * dt;
             
-            var wpp2 = (playerCircle.y-200)*(playerCircle.y-200);
-            var wpm2 = (playerCircle.y+200)*(playerCircle.y+200);
+            var wpp2 = (playerCircle.y-200)*(playerCircle.y-200)*3;
+            var wpm2 = (playerCircle.y+200)*(playerCircle.y+200)*3;
             if (wpp2 < pr2) {
               playerCircle.y -= repulsePerson(v, wpp2) * dt;
             } else if (wpm2 < pr2) {
@@ -105,8 +105,8 @@
               } else {
                 ec.x += (v/2 + xPush) * dt;
                 
-                var wp2 = (ec.y-200)*(ec.y-200);
-                var wm2 = (ec.y+200)*(ec.y+200);
+                var wp2 = (ec.y-200)*(ec.y-200)*3;
+                var wm2 = (ec.y+200)*(ec.y+200)*3;
                 if (wp2 < pr2) {
                   ec.y -= repulsePerson(v/4, wp2) * dt;
                 } else if (wm2 < pr2) {
