@@ -57,12 +57,14 @@
 
             playerCircle = new createjs.Shape();
             playerCircle.graphics.beginFill("red").drawCircle(0, 200, personRadius/2);
+            playerCircle.cache(-personRadius/2,-personRadius/2+200,personRadius,personRadius);
             playerCircle.x = 900; playerCircle.y = 0;
             stage.addChild(playerCircle);
             
             for (var i = 0; i < maxEnemies; ++i) {
               enemyCircles[i] = new createjs.Shape();
               enemyCircles[i].graphics.beginFill("black").drawCircle(0, 200, personRadius/2);
+              playerCircle.cache(-personRadius/2,-personRadius/2+200,personRadius,personRadius);
               enemyCircles[i].x = 1000; enemyCircles[i].y = 0;
               stage.addChild(enemyCircles[i]);
             }
@@ -103,7 +105,7 @@
                 enemyCircles[numEnemies] = ec;
                 --i;
               } else {
-                ec.x += (v/2 + xPush) * dt;
+                ec.x += (ec.fudge + v/2 + xPush) * dt;
                 
                 var wp2 = (ec.y-200)*(ec.y-200)*3;
                 var wm2 = (ec.y+200)*(ec.y+200)*3;
@@ -118,6 +120,7 @@
             if (numEnemies < maxEnemies && Math.random() < 0.18 * event.delta/15) {
               enemyCircles[numEnemies].x = -100;
               enemyCircles[numEnemies].y = (Math.random()-0.5) * 340;
+              enemyCircles[numEnemies].fudge = (Math.random()-0.5)*120;
               numEnemies++;
             }
             
