@@ -12,8 +12,10 @@
           var pressed = {};
           var pixels = new Array(19);
           var accumulator = 0;
+          var totalTime = 0;
           // null, I, J, L, O, S, T, Z
           var colorArray = [ "black", "cyan", "blue", "orange", "yellow", "green", "purple", "red" ];
+          var ghostArray = [ "black", "dimgray", "dimgray", "dimgray", "dimgray", "dimgray", "dimgray", "dimgray" ];
           // These coordinates are wrt the upper-left of a 3x3 or 4x4 box which bounds the piece, "flat-down" orientation at index 0 going clockwise
           // Note consistent usage of 1-based indexing and row-column order
           var pieces = [[ [],
@@ -24,7 +26,7 @@
               [0, 1, 0, 2, 1, 0, 1, 1],
               [0, 1, 1, 0, 1, 1, 1, 2],
               [0, 0, 0, 1, 1, 1, 1, 2]]];
-          // Note that the 3x3 boxes should be spawned at 0, 3 and the 4x4 boxes at -1, 2
+          // Note that the 3x3 boxes should be spawned at 0, 3 and the 4x4 boxes at -1, 2 (or 3)
           var boundingBox = [ 0, 4, 3, 3, 4, 3, 3, 3 ];
           // piece state
           var cr, cc, cpiece = 0, corient;
@@ -32,6 +34,10 @@
           var haveSpawned = new Array(8);
           // number which have been drawn already
           var numSpawned = 0;
+          
+          var savedPiece = 0;
+          
+          var ghost = false;
           
           // http://www.tetrisconcept.net/wiki/SRS
           // Note that contrary to all other things, kicks are in x,y with x to the right and y upwards
@@ -119,16 +125,24 @@
           function cleanCurrentPiece() {
             if (cpiece != 0) {
               for (var i = 0; i < 4; ++i) {
-                redrawPixel(cpr(i),cpc(i),"black");
-                pixels[cpr(i)][cpc(i)].filled = false;
+                if (ghost) {
+                  pixels[cpr(i)][cpc(i)].ghost = 0;
+                } else {
+                  pixels[cpr(i)][cpc(i)].occupied = 0;
+                }
+                pixels[cpr(i)][cpc(i)].redraw = true;
               }
             }
           }
           function drawCurrentPiece() {
             if (cpiece != 0) {
               for (var i = 0; i < 4; ++i) {
-                redrawPixel(cpr(i),cpc(i),colorArray[cpiece]);
-                pixels[cpr(i)][cpc(i)].filled = true;
+                if (ghost) {
+                  pixels[cpr(i)][cpc(i)].ghost = cpiece;
+                } else {
+                  pixels[cpr(i)][cpc(i)].occupied = cpiece;
+                }
+                pixels[cpr(i)][cpc(i)].redraw = true;
               }
             }
           }
@@ -137,12 +151,9 @@
             if (cpiece != 0) {
               var cr0 = cr;
               var cc0 = cc;
-              console.log(kickArray);
               
               for (var k = 0; k < kickArray.length/2; ++k) {
                 var placed = true;
-                
-                
                 
                 // lolol note this failure
                 cr = cr0 - kickArray[k*2+1];
@@ -152,7 +163,7 @@
                   var tr = cpr(i);
                   var tc = cpc(i);
                   
-                  if (tr < 0 || tr >= 19 || tc < 0 || tc >= 9 || pixels[tr][tc].filled) {
+                  if (tr < 0 || tr >= 19 || tc < 0 || tc >= 9 || pixels[tr][tc].occupied > 0) {
                     placed = false;
                     break;
                   }
@@ -168,14 +179,91 @@
             return false;
           }
           
-          function init() {
-            alert('space for new piece, left/right to rotate');
+          var gr = 5, gc = 3;
+          var gorient = 0;
+          var gpiece = 0;
+          function cleanAndDrawGhost() {
+            ghost = true;
+            var cr0 = cr, cc0 = cc;
+            var corient0 = corient;
+            var cpiece0 = cpiece;
             
+            cr = gr, cc = gc;
+            corient = gorient;
+            cpiece = gpiece;
+            
+            cleanCurrentPiece();
+            
+            cr = cr0, cc = cc0;
+            gorient = corient = corient0;
+            gpiece = cpiece = cpiece0;
+            
+            while (attemptPiecePlacement(fallKick)) ;
+            
+            if (gr != cr0 || gc != cc0) {
+              drawCurrentPiece();
+            }
+            
+            gr = cr, gc = cc;
+            cr = cr0, cc = cc0;
+            
+            ghost = false;
+          }
+          
+          function spawnPiece(piece) {
+            accumulator = 0;
+            corient = 0; cpiece = piece;
+            
+            if (boundingBox[cpiece] == 3) {
+              cr = 0, cc = 3;
+            } else {
+              if (Math.random() > .5) {
+                cr = -1; cc = 2;
+              } else {
+                cr = -1; cc = 3;
+              }
+            }
+            
+            if (!attemptPiecePlacement([0, 0])) {
+              alert("You lose!");
+            }
+            
+            cleanAndDrawGhost();
+            drawCurrentPiece();
+          }
+          
+          function lockPiece() {
+            for (var r = 18; r > 0; --r) {
+              var sum = 0;
+              for (var c = 0; c < 9; ++c) {
+                if (pixels[r][c].occupied > 0) {
+                  sum++;
+                }
+              }
+              if (sum == 9) {
+                // tetris!
+                for (var k = r; k > 0; --k) {
+                  for (var c = 0; c < 9; ++c) {
+                    pixels[k][c].occupied = pixels[k-1][c].occupied;
+                    pixels[k][c].ghost = 0;
+                    pixels[k][c].redraw = true;
+                  }
+                }
+                ++r;
+              }
+            }
+            spawnPiece(drawSeven());
+          }
+          
+          function init() {
+            alert("Q/E to rotate, left/right/down or a/d/s to move, up/w to lock");
             stage = new createjs.Stage("demoCanvas");
             keymaps[87] = keymaps[38] = "up";
             keymaps[65] = keymaps[37] = "left";
             keymaps[83] = keymaps[40] = "down";
             keymaps[68] = keymaps[39] = "right";
+            keymaps[81] = "rotleft";
+            keymaps[69] = "rotright";
             keymaps[32] = "space";
             
             // generate the rotated offsets
@@ -196,38 +284,51 @@
                 if (cmp === "up") {
                   cleanCurrentPiece();
                   while (attemptPiecePlacement(fallKick)) ;
+                  cleanAndDrawGhost();
                   drawCurrentPiece();
+                  lockPiece();
                 } else if (cmp === "down") {
                   cleanCurrentPiece();
+                  accumulator = 0;
                   attemptPiecePlacement(fallKick);
+                  cleanAndDrawGhost();
                   drawCurrentPiece();
                 } else if (cmp === "left") {
+                  cleanCurrentPiece();
+                  accumulator = 0;
+                  attemptPiecePlacement([-1, 0]);
+                  cleanAndDrawGhost();
+                  drawCurrentPiece();
+                } else if (cmp === "right") {
+                  cleanCurrentPiece();
+                  accumulator = 0;
+                  attemptPiecePlacement([1, 0]);
+                  cleanAndDrawGhost();
+                  drawCurrentPiece();
+                } else if (cmp === "rotleft") {
                   // counterclockwise
                   cleanCurrentPiece();
+                  accumulator = 0;
                   arr = cpiece==1 ? wallKicksIL[corient] : wallKicksL[corient];
                   corient = (corient+3)%4;
                   if (!attemptPiecePlacement(arr)) {
                     corient = (corient+1)%4;
                   }
+                  cleanAndDrawGhost();
                   drawCurrentPiece();
-                } else if (cmp === "right") {
+                } else if (cmp === "rotright") {
                   // clockwise
                   cleanCurrentPiece();
+                  accumulator = 0;
                   arr = cpiece==1 ? wallKicksIR[corient] : wallKicksR[corient];
                   corient = (corient+1)%4;
                   if (!attemptPiecePlacement(arr)) {
                     corient = (corient+3)%4;
                   }
+                  cleanAndDrawGhost();
                   drawCurrentPiece();
                 } else if (cmp === "space") {
-                  // this should be used for swapping pieces into storage but right now it'll be used to spawn pieces
                   
-                  cleanCurrentPiece();
-                  
-                  cr = 5, cc = 3;
-                  corient = 0; cpiece = drawSeven();
-                  
-                  drawCurrentPiece();
                 }
               }
             });
@@ -242,7 +343,10 @@
               pixels[r] = new Array(9);
               for (var c = 0; c < 9; ++c) {
                 pixels[r][c] = {
-                  filled: false,
+                  redraw: false,
+                  occupied: 0,
+                  ghost: 0,
+                  color: "",
                 };
                 if (r > 1) {
                   pixels[r][c].shape = new createjs.Shape();
@@ -261,8 +365,44 @@
           }
 
           function tick(event) {
+            // This should only happen on first spawn or on first swap
+            if (cpiece == 0) {
+              spawnPiece(drawSeven());
+            }
             var dt = (event.delta)/1000;
             accumulator += dt;
+            totalTime += dt;
+            
+            if (accumulator > 0.5) {
+              cleanCurrentPiece();
+              accumulator = 0;
+              if (!attemptPiecePlacement(fallKick)) {
+                cleanAndDrawGhost();
+                drawCurrentPiece();
+                lockPiece();
+              } else {
+                cleanAndDrawGhost();
+                drawCurrentPiece();
+              }
+              
+            }
+            
+            for (var r = 2; r < 19; ++r) {
+              for (var c = 0; c < 9; ++c) {
+                if (pixels[r][c].redraw) {
+                  if (pixels[r][c].color !== "") {
+                    redrawPixel(r,c,pixels[r][c].color);
+                  } else if (pixels[r][c].occupied > 0) {
+                    redrawPixel(r,c,colorArray[pixels[r][c].occupied]);
+                  } else if (pixels[r][c].ghost > 0) {
+                    redrawPixel(r,c,ghostArray[pixels[r][c].ghost]);
+                  } else {
+                    redrawPixel(r,c,"black");
+                  }
+                  pixels[r][c].redraw = false;
+                }
+              }
+            }
             
             stage.update(event);
           }
