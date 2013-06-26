@@ -256,15 +256,15 @@
           }
           
           function init() {
-            alert("Q/E to rotate, left/right/down or a/d/s to move, up/w to lock");
+            alert("Q/E/w/up to rotate, left/right/down or a/d/s to move, space to hard drop");
             stage = new createjs.Stage("demoCanvas");
-            keymaps[87] = keymaps[38] = "up";
+            keymaps[87] = keymaps[38] = "rotright"; // used to be up
             keymaps[65] = keymaps[37] = "left";
             keymaps[83] = keymaps[40] = "down";
             keymaps[68] = keymaps[39] = "right";
             keymaps[81] = "rotleft";
             keymaps[69] = "rotright";
-            keymaps[32] = "space";
+            keymaps[32] = "up"; // used to be space
             
             // generate the rotated offsets
             for (var rot = 1; rot < 4; ++rot) {
