@@ -12,6 +12,13 @@
           var dx = 0, dy = 0;
           var pressed = {};
           
+          var rocketDir = {};
+          var rocket;
+          var rocketActive = false;
+          
+          var explosion;
+          var explosionTimer = 0.0;
+          
           var bootsFraction = 1.0;
           var rocketFraction = 1.0;
           
@@ -34,6 +41,51 @@
           }
           
           var bootsBar, rocketBar;
+          
+          var calibStage = {},
+              calibPage = {},
+              cal = {};
+          // note that easeljs stage events won't trigger when leaving the canvas,
+          // even when you enable them. Hence the workaround
+          function calibrateMouseStage(event) {
+            calibStage.x = event.stageX;
+            calibStage.y = event.stageY;
+          }
+          function calibrateMouseStageUp(event) {
+            cal.x = calibPage.x - calibStage.x;
+            cal.y = calibPage.y - calibStage.y;
+            $(document).off("mousedown",calibrateMousePage);
+            stage.removeEventListener("stagemousedown",calibrateMouseStage);
+            stage.removeEventListener("stagemouseup",calibrateMouseStageUp);
+            $(document).on("mousedown",shootBazooka);
+          }
+          function calibrateMousePage(event) {
+            calibPage.x = event.pageX;
+            calibPage.y = event.pageY;
+          }
+          
+          function shootBazooka(event) {
+            if (rocketFraction >= 1.0 ) {
+              var pt = stage.globalToLocal(event.pageX-cal.x, event.pageY-cal.y);
+              //console.log(pt.x + ", " + pt.y);
+              
+              var dir = { x: player.x - pt.x, y: player.y+40 - pt.y };
+              var length2 = dir.x*dir.x+dir.y*dir.y;
+              if (length2>25) {
+                var length = Math.sqrt(length2);
+                rocketDir.x = -dir.x / length;
+                rocketDir.y = -dir.y / length;
+                rocket.x = player.x;
+                rocket.y = player.y+40;
+                rocketActive = true;
+                // change this so you move more if you're not on the ground
+                player.vx -= rocketDir.x * 30;
+                player.vy -= rocketDir.y * 30;
+                stage.addChild(rocket);
+                rocketFraction = 0.0;
+              }
+            }
+          }
           
           function init() {
             stage = new createjs.Stage("demoCanvas");
@@ -85,6 +137,21 @@
             player.vx = 0; player.vy = 0;
             stage.setTransform(0,420,1,-1);
             stage.addChild(player);
+            
+            rocket = new createjs.Shape();
+            rocket.graphics.beginFill("black").drawCircle(0,0,4);
+            rocket.cache(-4,-4,8,8);
+            rocket.x = 0; rocket.y = 0;
+            
+            explosion = new createjs.Shape();
+            explosion.graphics.beginFill("orange").drawCircle(0,0,30);
+            explosion.cache(-30,-30,60,60);
+            
+            alert("Click once in the game area to calibrate the mouse (i.e. Norman was too lazy to do some math");
+            
+            $(document).on("mousedown",calibrateMousePage);
+            stage.addEventListener("stagemousedown",calibrateMouseStage);
+            stage.addEventListener("stagemouseup",calibrateMouseStageUp);
 
             createjs.Ticker.addEventListener("tick", tick);
             createjs.Ticker.setFPS(60);
@@ -107,20 +174,55 @@
             
             if (dx*dx+dy*dy > 0 && bootsFraction > 0.0) {
               player.vx += dx * 2*(100 + (bootsFraction * 200)) * dt / diagFactor;
-              player.vy += dy * 5*(100 + (bootsFraction * 200)) * dt / diagFactor;
+              player.vy += dy * 6*(100 + (bootsFraction * 200)) * dt / diagFactor;
               bootsFraction -= (bootsFraction+1)*dt*2.5;
               if (bootsFraction <= 0.0) {
                 bootsFraction = 0.0;
               }
             }
             
+            if (rocketActive) {
+              rocket.x += rocketDir.x * 600 * dt;
+              rocket.y += rocketDir.y * 600 * dt;
+            }
             
+            if (rocketActive && (rocket.x < 0 || rocket.x >= 640 || rocket.y < 0 || rocket.y >= 420)) {
+              rocketActive = false;
+              explosion.x = rocket.x;
+              explosion.y = rocket.y;
+              explosionTimer = 0.15;
+              var dist2 = (player.x-rocket.x)*(player.x-rocket.x)+(player.y+30-rocket.y)*(player.y-rocket.y+30);
+              player.vx += (player.x-rocket.x) / (dist2 + 100) * 6000;
+              player.vy += (player.y+30-rocket.y) / (dist2 + 100) * 6000;
+              stage.addChild(explosion);
+              stage.removeChild(rocket);
+            }
+            
+            if (explosionTimer > 0.0) {
+              explosionTimer -= dt;
+              if (explosionTimer <= 0.0) {
+                stage.removeChild(explosion);
+              }
+            }
             
             if (bootsFraction < 1.0) {
               bootsFraction += (1.1-bootsFraction)*dt*2.5;
               if (bootsFraction >= 1.0) {
                 bootsFraction = 1.0;
               }
+            }
+            
+            if (rocketFraction < 1.0) {
+              rocketFraction += (2-rocketFraction)*dt;
+              if (rocketFraction >= 1.0) {
+                rocketFraction = 1.0;
+              }
+            }
+            
+            if (rocketActive) {
+              rocketBar.colorFilled = "red";
+            } else {
+              rocketBar.colorFilled = "#00ff00";
             }
             
             if (player.y < 0) {
@@ -138,7 +240,7 @@
     </head>
     <body onload="init();">
       <div class="canvasHolder">
-        <canvas id="demoCanvas" width="640" height="420" style="border:2px solid;">Sadness</canvas>
+        <canvas id="demoCanvas" width="640" height="420" style="border:2px solid;-moz-user-select: -moz-none;-webkit-user-select: none;">Sadness</canvas>
       </div>
     </body>
 </html>
