@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Infinite Run</title>
+        <script src="http://code.createjs.com/createjs-2013.05.14.min.js"></script>
+        <script src="scripts/jquery-2.0.2.min.js"></script>
+        
+        <script>
+          var myObj = function() { this.a = 4; };
+          test = new myObj();
+          
+          test.b = function() {
+            function globalp() {
+              console.log();
+            }
+          }
+        </script>
+    </head>
+    <body>
+    </body>
+</html>
